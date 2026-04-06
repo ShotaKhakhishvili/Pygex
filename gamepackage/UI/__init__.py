@@ -1,9 +1,9 @@
 from ..Game import *
 
-class Button(Object):
-    def __init__(self, x, y, width, height, color):
-        self.x = x
-        self.y = y
+class Button(UPrimitiveComponent):
+    def __init__(self, width, height, color, classname="Button"):
+        super().__init__(classname)
+
         self.width = width
         self.height = height
         self.color = color
@@ -12,26 +12,34 @@ class Button(Object):
         self.is_clicked = False
         self.is_pressed = False
 
-        self.__button = pygame.Rect(x, y, width, height)
+        self.rect = pygame.Rect(self.pos[0], self.pos[1], width, height)
+
+    def update_rect(self):
+        self.rect.x = self.pos[0]
+        self.rect.y = self.pos[1]
+        self.rect.width = self.width
+        self.rect.height = self.height
 
     def set_color(self, red, green, blue):
         self.color = Color(red, green, blue)
 
     def _draw(self, screen):
+        self.update_rect()
         pygame.draw.rect(screen, (  self.color.red(),
                                     self.color.green(), self.color.blue()),
-                                    self.__button
+                                    self.rect
                                     )
 
-    def update(self):
+    def tick(self, dt):
+        self.update_rect()
         old_pressed = self.is_pressed
         old_hovered = self.is_hovered
 
         mouse_pos = pygame.mouse.get_pos()
-        self.is_hovered = self.__button.collidepoint(mouse_pos)
+        self.is_hovered = self.rect.collidepoint(mouse_pos)
 
         mouse_buttons = pygame.mouse.get_pressed()
-        self.is_pressed = (mouse_buttons[0] and self.is_hovered) or (old_pressed and mouse_buttons[0])
+        self.is_pressed = mouse_buttons[0] and (self.is_hovered or old_pressed)
 
         self.is_clicked = False
 
@@ -52,6 +60,7 @@ class Button(Object):
             self.on_released()
             if self.is_hovered:
                 self.is_clicked = True
+                self.on_clicked()
 
     def on_just_hovered(self):
         pass

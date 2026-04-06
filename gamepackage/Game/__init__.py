@@ -1,17 +1,17 @@
-import pygame
+from __future__ import annotations
 
-class InputType:
-    UP = 0
-    DOWN = 1
-    LEFT = 2
-    RIGHT = 3
-    QUIT = 4
+import pygame
+from enum import Enum, auto
+
+class InputType(Enum):
+    UP = auto()
+    DOWN = auto()
+    LEFT = auto()
+    RIGHT = auto()
+    QUIT = auto()
 
 
 class Color:
-    __red = 0
-    __green = 0
-    __blue = 0
 
     def __init__(self, red, green, blue):
         self.__red = red
@@ -30,18 +30,15 @@ class Color:
         self.__green = green
         self.__blue = blue
 
-
+    def to_tuple(self):
+        return self.red(), self.green(), self.blue()
 
 class Renderer:
-    __clear_color = Color(0,0,0)
-
     def __init__(self, clear_color : Color):
-        self.__clear_color = Color(clear_color.red(), clear_color.green(), clear_color.blue())
+        self._clear_color = Color(clear_color.red(), clear_color.green(), clear_color.blue())
 
     def draw(self, screen, objects : list):
-        screen.fill((self.__clear_color.red(),
-                    self.__clear_color.green(),
-                    self.__clear_color.blue()))
+        screen.fill(self._clear_color.to_tuple())
 
         for current_object in objects:
             current_object._draw(screen)
@@ -49,42 +46,49 @@ class Renderer:
         pygame.display.flip()
 
 class Game:
-    __run = True
-    __frame = 0
-
     def quit(self):
         self.__run = False
         pygame.quit()
 
-    def update(self):
-        self.__renderer.draw(self.__screen, self.__world.registered_objects())
-
+    def update(self, dt):
         self.__check_for_inputs()
-        self.__world.update()
+        self.__world.update(dt)
+
+        self.__renderer.draw(self.__screen, self.__world.gather_render_primitives())
 
         self.__frame += 1
 
     def __init__(self, width : int, height : int, clear_color : Color):
+        self.__run = True
+        self.__frame = 0
 
         self.__width = width
         self.__height = height
+
+        self.__clock = pygame.time.Clock()
 
         pygame.init()
         self.__screen = pygame.display.set_mode((self.__width, self.__height))
         pygame.display.flip()
 
         self.__renderer = Renderer(clear_color)
-        self.__world = self.__world = World(self.__renderer)
+        self.__world = World()
 
     def run(self):
         while self.__run:
-            self.update()
+            dt = self.__clock.tick(60) / 1000.0
+
+            self.update(dt)
 
     def input_received(self, input_type : InputType):
         pass
 
     def __check_for_inputs(self):
         for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.input_received(InputType.QUIT)
+                continue
+
             if event.type == pygame.KEYDOWN:
                 match event.key:
                     case pygame.K_UP:
@@ -98,28 +102,152 @@ class Game:
                     case pygame.K_ESCAPE:
                         self.input_received(InputType.QUIT)
 
-    def create_object(self, obj : Object):
+    def spawn_actor(self, obj : AActor):
         self.__world._register(obj)
-    def destroy_object(self, obj : Object):
+
+        return obj
+    def destroy_actor(self, obj : AActor):
         self.__world._unregister(obj)
 
-class Object:
+class UObject:
+    _internal_count = 0
+    def __init__(self, classname="UObject"):
+        UObject._internal_count += 1
+
+        self.name = classname + str(UObject._internal_count)
+
+class UActorComponent(UObject):
+    def __init__(self, classname="UActorComponent"):
+        super().__init__(classname)
+        self._owner = None
+
+    def set_owner(self, owner: "AActor"):
+        self._owner = owner
+
+    def get_owner(self):
+        return self._owner
+
+    def begin_play(self):
+        pass
+
+    def tick(self, dt):
+        pass
+
+    def on_destroy(self):
+        pass
+
+class USceneComponent(UActorComponent):
+    def __init__(self, classname="USceneComponent"):
+        super().__init__(classname)
+
+        self.pos = (0, 0)
+        self.rot = 0
+        self.scale = (1, 1, 1)
+
+        self.parent = None
+        self.children = []
+
+    def is_descendant_of(self, other):
+        current = self.parent
+        while current is not None:
+            if current == other:
+                return True
+            current = current.parent
+        return False
+
+    def can_attach_to(self, new_parent):
+        if new_parent is None:
+            return True
+        if new_parent == self:
+            return False
+        if new_parent.is_descendant_of(self):
+            return False
+        return True
+
+    def set_parent(self, new_parent):
+        if not self.can_attach_to(new_parent):
+            print("CYCLIC PARENT-CHILD BEHAVIOUR DETECTED!")
+            return
+
+        if self.parent is not None:
+            if self in self.parent.children:
+                self.parent.children.remove(self)
+
+        self.parent = new_parent
+
+        if new_parent is not None:
+            if self not in new_parent.children:
+                new_parent.children.append(self)
+
+    def add_child(self, child):
+        if child is None:
+            return
+        child.set_parent(self)
+
+    def remove_child(self, child):
+        if child is None:
+            return
+        if child in self.children:
+            self.children.remove(child)
+            if child.parent == self:
+                child.parent = None
+
+    def get_world_pos(self):
+        if self.parent is None:
+            return self.pos
+        px, py, pz = self.parent.get_world_pos()
+        x, y = self.pos
+        return px + x, py + y
+
+class UPrimitiveComponent(USceneComponent):
+    def __init__(self, classname="UPrimitiveComponent"):
+        super().__init__(classname)
+
+        self.visible = True
+        self.z_order = 0
+
     def _draw(self, screen):
         pass
 
-    def update(self):
+class AActor(UObject):
+
+    def __init__(self, classname="AActor"):
+        super().__init__(classname)
+        self._root = USceneComponent()
+        self._root.set_owner(self)
+        self._components = [self._root]
+
+    def begin_play(self):
         pass
 
+    def tick(self, dt):
+        for component in self._components:
+            component.tick(dt)
+        pass
+
+    def add_component(self, component: UActorComponent):
+        if component is None:
+            return
+
+        component.set_owner(self)
+        self._components.append(component)
+
+        if isinstance(component, USceneComponent) and component.parent is None:
+            component.set_parent(self._root)
+
+        return component
+
+    def get_components(self):
+        return self._components
+
 class World:
-    def registered_objects(self):
+    def actors(self):
         return self.__registered_objects
 
-    def __init__(self, renderer : Renderer):
+    def __init__(self):
         self.__registered_objects = []
         self.__register_queue = []
         self.__unregister_queue = []
-
-        self.__renderer = renderer
 
     def _register(self, obj):
         self.__register_queue.append(obj)
@@ -127,15 +255,32 @@ class World:
     def _unregister(self, obj):
         self.__unregister_queue.append(obj)
 
-    def _draw(self, screen):
-        self.__renderer.draw(screen, self.__registered_objects)
+    def gather_render_primitives(self):
+        primitives = []
 
-    def update(self):
+        for actor in self.__registered_objects:
+            if actor is None:
+                continue
+
+            for component in actor.get_components():
+                if isinstance(component, UPrimitiveComponent) and component.visible:
+                    primitives.append(component)
+
+        primitives.sort(key=lambda primitive: primitive.z_order)
+        return primitives
+
+    def update(self, dt):
+        for obj in self.__registered_objects:
+            obj.tick(dt)
+
         for obj in self.__unregister_queue:
-            self.__registered_objects.remove(obj)
+            if obj in self.__registered_objects:
+                self.__registered_objects.remove(obj)
 
         for obj in self.__register_queue:
-            self.__registered_objects.append(obj)
+            if obj not in self.__registered_objects:
+                self.__registered_objects.append(obj)
+                obj.begin_play()
 
         self.__unregister_queue.clear()
         self.__register_queue.clear()
