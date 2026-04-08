@@ -1,37 +1,28 @@
 from ..Game import *
 
-class Button(UPrimitiveComponent):
-    def __init__(self, width, height, color, classname="Button"):
-        super().__init__(classname)
+class Button(UBoxComponent):
+    def __init__(self, color, width, height, classname="Button"):
+        super().__init__(color, width, height, classname)
 
-        self.width = width
-        self.height = height
-        self.color = color
+        self.color_hovered = color * 0.9
+        self.color_pressed = color * 0.75
+        self.default_color = color
 
         self.is_hovered = False
         self.is_clicked = False
         self.is_pressed = False
 
-        self.rect = pygame.Rect(self.pos[0], self.pos[1], width, height)
-
-    def update_rect(self):
-        self.rect.x = self.pos[0]
-        self.rect.y = self.pos[1]
-        self.rect.width = self.width
-        self.rect.height = self.height
-
-    def set_color(self, red, green, blue):
-        self.color = Color(red, green, blue)
-
-    def _draw(self, screen):
-        self.update_rect()
-        pygame.draw.rect(screen, (  self.color.red(),
-                                    self.color.green(), self.color.blue()),
-                                    self.rect
-                                    )
+    def update_shape(self):
+        super().update_shape()
+        if self.is_pressed:
+            self.color = self.color_pressed
+        elif self.is_hovered:
+            self.color = self.color_hovered
+        else:
+            self.color = self.default_color
 
     def tick(self, dt):
-        self.update_rect()
+        self.update_shape()
         old_pressed = self.is_pressed
         old_hovered = self.is_hovered
 
@@ -76,4 +67,7 @@ class Button(UPrimitiveComponent):
     def on_pressed(self):
         pass
     def on_released(self):
+        pass
+
+    def on_clicked(self):
         pass

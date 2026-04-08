@@ -14,7 +14,7 @@ class MyGame(Game):
 
         HUD = self.spawn_actor(AActor())
 
-        button = HUD.add_component(Button(300, 300, Color(120, 50, 40)))
+        button = HUD.add_component(Button(Color(120, 50, 40), 300, 300))
 
         button.pos = (50, 50)
 

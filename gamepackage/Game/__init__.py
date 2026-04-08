@@ -13,10 +13,17 @@ class InputType(Enum):
 
 class Color:
 
-    def __init__(self, red, green, blue):
+    def __init__(self, red : int, green : int, blue : int):
         self.__red = red
         self.__green = green
         self.__blue = blue
+
+    def __mul__(self, scale):
+        return Color(
+            self.__red * scale,
+            self.__green * scale,
+            self.__blue * scale
+        )
 
     def red(self):
         return self.__red % 256
@@ -208,6 +215,47 @@ class UPrimitiveComponent(USceneComponent):
 
     def _draw(self, screen):
         pass
+
+class UShapeComponent(UPrimitiveComponent):
+    def __init__(self, color : Color, classname="UShapeComponent"):
+        super().__init__(classname)
+        self.color = color
+        pass
+
+    def set_color(self, red, green, blue):
+        self.color = Color(red, green, blue)
+
+    def get_scaled_shape(self):
+        pass
+
+    def get_shape_bounds(self):
+        pass
+
+    def update_shape(self):
+        pass
+
+class UBoxComponent(UShapeComponent):
+    def __init__(self, color : Color, width, height, classname="UBoxComponent"):
+        super().__init__(color, classname)
+
+        self.width = width
+        self.height = height
+
+        self.rect = pygame.Rect(self.pos[0], self.pos[1], width, height)
+
+    def _draw(self, screen):
+        self.update_shape()
+        pygame.draw.rect(screen, (  self.color.red(),
+                                    self.color.green(), self.color.blue()),
+                                    self.rect
+                                    )
+
+    def update_shape(self):
+        self.rect.x = self.pos[0]
+        self.rect.y = self.pos[1]
+        self.rect.width = self.width
+        self.rect.height = self.height
+
 
 class AActor(UObject):
 
