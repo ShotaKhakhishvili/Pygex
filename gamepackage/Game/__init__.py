@@ -3,6 +3,9 @@ from __future__ import annotations
 import pygame
 from enum import Enum, auto
 
+from gamepackage.Game.managers import cursor_manager
+
+
 class InputType(Enum):
     UP = auto()
     DOWN = auto()
@@ -59,9 +62,13 @@ class Game:
 
     def update(self, dt):
         self.__check_for_inputs()
-        self.__world.update(dt)
+
+        if not self.__run:
+            return
 
         self.__renderer.draw(self.__screen, self.__world.gather_render_primitives())
+        self.__world.update(dt)
+        cursor_manager.update()
 
         self.__frame += 1
 
@@ -154,6 +161,11 @@ class USceneComponent(UActorComponent):
         self.parent = None
         self.children = []
 
+    def tick(self, dt):
+        super().tick(dt)
+        for child in self.children:
+            child.tick(dt)
+
     def is_descendant_of(self, other):
         current = self.parent
         while current is not None:
@@ -244,6 +256,7 @@ class UBoxComponent(UShapeComponent):
         self.rect = pygame.Rect(self.pos[0], self.pos[1], width, height)
 
     def _draw(self, screen):
+        super()._draw(screen)
         self.update_shape()
         pygame.draw.rect(screen, (  self.color.red(),
                                     self.color.green(), self.color.blue()),
@@ -270,8 +283,9 @@ class AActor(UObject):
 
     def tick(self, dt):
         for component in self._components:
-            component.tick(dt)
-        pass
+            if (component is self._root or
+                not isinstance(component, USceneComponent)):
+                component.tick(dt)
 
     def add_component(self, component: UActorComponent):
         if component is None:

@@ -1,6 +1,8 @@
 from ..Game import *
+from ..Game.managers import cursor_manager
 
-class Button(UBoxComponent):
+
+class UButton(UBoxComponent):
     def __init__(self, color, width, height, classname="Button"):
         super().__init__(color, width, height, classname)
 
@@ -16,12 +18,17 @@ class Button(UBoxComponent):
         super().update_shape()
         if self.is_pressed:
             self.color = self.color_pressed
+            cursor_manager.request(pygame.SYSTEM_CURSOR_HAND)
         elif self.is_hovered:
             self.color = self.color_hovered
+            cursor_manager.request(pygame.SYSTEM_CURSOR_SIZEALL)
         else:
             self.color = self.default_color
+            cursor_manager.request(pygame.SYSTEM_CURSOR_ARROW)
 
     def tick(self, dt):
+        super().tick(dt)
+
         self.update_shape()
         old_pressed = self.is_pressed
         old_hovered = self.is_hovered
@@ -52,6 +59,13 @@ class Button(UBoxComponent):
             if self.is_hovered:
                 self.is_clicked = True
                 self.on_clicked()
+
+        if self.is_pressed:
+            cursor_manager.request(pygame.SYSTEM_CURSOR_HAND)
+        elif self.is_hovered:
+            cursor_manager.request(pygame.SYSTEM_CURSOR_HAND)
+        else:
+            cursor_manager.request(pygame.SYSTEM_CURSOR_ARROW)
 
     def on_just_hovered(self):
         pass
