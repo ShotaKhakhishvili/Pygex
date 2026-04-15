@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pygame
+import math
 from enum import Enum, auto
 
 from gamepackage.Game.managers import cursor_manager
@@ -55,15 +56,19 @@ class Renderer:
 
         pygame.display.flip()
 
+screen_dims = (800,600)
+
 class Game:
-    def quit(self):
-        self.__run = False
-        pygame.quit()
+    __run = True
+
+    @classmethod
+    def quit(cls):
+        cls.__run = False
 
     def update(self, dt):
         self.__check_for_inputs()
 
-        if not self.__run:
+        if not Game.__run:
             return
 
         self.__renderer.draw(self.__screen, self.__world.gather_render_primitives())
@@ -73,11 +78,12 @@ class Game:
         self.__frame += 1
 
     def __init__(self, width : int, height : int, clear_color : Color):
-        self.__run = True
         self.__frame = 0
 
         self.__width = width
         self.__height = height
+
+        screen_dims = {width, height}
 
         self.__clock = pygame.time.Clock()
 
@@ -89,10 +95,11 @@ class Game:
         self.__world = World()
 
     def run(self):
-        while self.__run:
+        while Game.__run:
             dt = self.__clock.tick(60) / 1000.0
 
             self.update(dt)
+        pygame.quit()
 
     def input_received(self, input_type : InputType):
         pass
@@ -212,11 +219,51 @@ class USceneComponent(UActorComponent):
                 child.parent = None
 
     def get_world_pos(self):
-        if self.parent is None:
-            return self.pos
-        px, py, pz = self.parent.get_world_pos()
         x, y = self.pos
-        return px + x, py + y
+        current = self.parent
+
+        while current is not None:
+            sx, sy, _ = current.scale
+            x *= sx
+            y *= sy
+
+            angle = math.radians(current.rot)
+            cos_angle = math.cos(angle)
+            sin_angle = math.sin(angle)
+            x, y = (
+                x * cos_angle - y * sin_angle,
+                x * sin_angle + y * cos_angle
+            )
+
+            px, py = current.pos
+            x += px
+            y += py
+            current = current.parent
+
+        return x, y
+
+    def get_world_rot(self):
+        rot = self.rot
+        current = self.parent
+
+        while current is not None:
+            rot += current.rot
+            current = current.parent
+
+        return rot
+
+    def get_world_scale(self):
+        sx, sy, sz = self.scale
+        current = self.parent
+
+        while current is not None:
+            psx, psy, psz = current.scale
+            sx *= psx
+            sy *= psy
+            sz *= psz
+            current = current.parent
+
+        return sx, sy, sz
 
 class UPrimitiveComponent(USceneComponent):
     def __init__(self, classname="UPrimitiveComponent"):

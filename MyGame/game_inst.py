@@ -7,7 +7,7 @@ class MyGame(Game):
 
     def input_received(self, input_type : InputType):
         if input_type == InputType.QUIT:
-            self.quit()
+            Game.quit()
 
     def __init__ (self, screen_width, screen_height, color : Color):
         super().__init__(screen_width, screen_height, color)
